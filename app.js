@@ -1,19 +1,16 @@
-var createError = require('http-errors');
-var path = require('path');
-var cookieParser = require('cookie-parser');
-var logger = require('morgan');
-
 const bodyParser = require('body-parser');
 const express = require('express');
 const mongoose = require('mongoose');
 
 mongoose.Promise = global.Promise;
 
-var indexRouter = require('./routes/index');
-var usersRouter = require('./routes/users');
-
-const { PORT, DATABASE_URL } = require('./config');
-const { Restaurant } = require('./models');
+const {
+    PORT,
+    DATABASE_URL
+} = require('./config');
+const {
+    Restaurant
+} = require('./models');
 
 const app = express();
 app.use(bodyParser.json());
@@ -24,28 +21,81 @@ app.set('view engine', 'jade');
 
 app.use(logger('dev'));
 app.use(express.json());
-app.use(express.urlencoded({ extended: false }));
+app.use(express.urlencoded({
+    extended: false
+}));
 app.use(cookieParser());
 app.use(express.static(path.join(__dirname, 'public')));
 
 app.get('/blog-posts', (req, res) => {
-
+    BlogPosts
+        .find()
+        .limit(10)
+        .then(blogPosts => {
+            res.json({
+                blogPosts: blogPosts.map(
+                    (blogPost) => blogPost.serialize())
+            });
+        })
+        .catch(err => {
+            console.error(err);
+            res.status(500).json({
+                message: 'Internal server error'
+            });
+        });
 });
 
-// catch 404 and forward to error handler
-app.use(function(req, res, next) {
-  next(createError(404));
+
+
+app.use('*', function (req, res) {
+    res.status(404).json({
+        message: 'Not Found'
+    });
 });
 
-// error handler
-app.use(function(err, req, res, next) {
-  // set locals, only providing error in development
-  res.locals.message = err.message;
-  res.locals.error = req.app.get('env') === 'development' ? err : {};
+let server;
 
-  // render the error page
-  res.status(err.status || 500);
-  res.render('error');
-});
+function runServer(databaseUrl, port = PORT) {
 
-module.exports = app;
+    return new Promise((resolve, reject) => {
+        mongoose.connect(databaseUrl, err => {
+            if (err) {
+                return reject(err);
+            }
+            server = app.listen(port, () => {
+                    console.log(`Your app is listening on port ${port}`);
+                    resolve();
+                })
+                .on('error', err => {
+                    mongoose.disconnect();
+                    reject(err);
+                });
+        });
+    });
+}
+
+
+function closeServer() {
+    return mongoose.disconnect().then(() => {
+        return new Promise((resolve, reject) => {
+            console.log('Closing server');
+            server.close(err => {
+                if (err) {
+                    return reject(err);
+                }
+                resolve();
+            });
+        });
+    });
+}
+
+if (require.main === module) {
+    runServer(DATABASE_URL).catch(err => console.error(err));
+}
+
+
+module.exports = {
+    app,
+    runServer,
+    closeServer
+};

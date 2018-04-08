@@ -14,6 +14,7 @@ const blogPostSchema = mongoose.Schema({
         firstName: String,
         lastName: String,
     },
+    created: Date
 });
 
 // *virtuals* (http://mongoosejs.com/docs/guide.html#virtuals)
@@ -22,18 +23,18 @@ const blogPostSchema = mongoose.Schema({
 //    return `${this.address.building} ${this.address.street}`.trim()});
 
 // this virtual will display the author's first and last name, separated by a space
-restaurantSchema.virtual('authorName').get(function () {
-    //need to define this virtual
+blogPostSchema.virtual('authorName').get(function () {
+    return `${this.author.firstName} ${this.authorlastName}`;
 });
 
 
 blogPostSchema.methods.serialize = function () {
 
     return {
-        id: this._id,
         title: this.title,
         author: this.authorName,
         content: this.content,
+        created: this.created
     };
 }
 
